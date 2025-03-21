@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState } from "react";
 import Webcam from "react-webcam";
 
 export default function Home() {
   const webcamRef = useRef<Webcam>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [image, setImage] = useState<string | null>(null);
 
   const switchCamera = () => {
     setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
@@ -14,8 +16,7 @@ export default function Home() {
   const capture = () => {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
-      console.log(imageSrc);
-      // 画像データの処理（保存、表示など）
+      setImage(imageSrc);
     }
   };
   return (
@@ -42,6 +43,21 @@ export default function Home() {
           切り替え
         </button>
       </div>
+      {image && (
+        <div className="mt-4">
+          <h3 className="mb-2 text-lg font-medium">撮影された写真</h3>
+          <Image
+            src={image}
+            alt="撮影された写真"
+            width={300}
+            height={200}
+            style={{
+              objectFit: "contain",
+              borderRadius: "12px",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
