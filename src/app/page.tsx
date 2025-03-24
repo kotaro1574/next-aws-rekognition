@@ -4,63 +4,82 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import Webcam from "react-webcam";
 
-export default function Home() {
-  const webcamRef = useRef<Webcam>(null);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [image, setImage] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+interface FaceDetail {
+  age: {
+    low?: number;
+    high?: number;
+  };
+  gender?: string;
+  genderConfidence?: number;
+  emotion?: string;
+  emotionConfidence?: number;
+  smile?: boolean;
+  eyeglasses?: boolean;
+  sunglasses?: boolean;
+  beard?: boolean;
+  mustache?: boolean;
+  eyesOpen?: boolean;
+  mouthOpen?: boolean;
+}
 
-  const switchCamera = () => {
-    setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
+interface FaceAnalysisResult {
+  success: boolean;
+  message: string;
+  faceCount?: number;
+  faceDetails?: FaceDetail[];
+}
+
+// 感情の英語名から日本語への変換関数
+const translateEmotion = (emotion?: string): string => {
+  if (!emotion) return "不明 ❓";
+
+  const emotionMap: Record<string, string> = {
+    HAPPY: "喜び 😄",
+    SAD: "悲しみ 😢",
+    ANGRY: "怒り 😠",
+    CONFUSED: "困惑 😕",
+    DISGUSTED: "嫌悪 🤢",
+    SURPRISED: "驚き 😲",
+    CALM: "平静 😌",
+    FEAR: "恐怖 😱",
+    UNKNOWN: "不明 ❓",
   };
 
-  const capture = () => {
+  return emotionMap[emotion] || `${emotion} ❓`;
+};
+
+export default function Home() {
+  const webcamRef = useRef<Webcam>(null);
+  const [image, setImage] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [faceAnalysisResult, setFaceAnalysisResult] =
+    useState<FaceAnalysisResult | null>(null);
+
+  const analyzeImage = async () => {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
       setImage(imageSrc);
-    }
-  };
 
-  const uploadToS3 = async () => {
-    if (!image) return;
+      try {
+        setIsAnalyzing(true);
 
-    try {
-      setIsUploading(true);
-      setUploadStatus("アップロード中...");
+        const response = await fetch("/api/analyze-face", {
+          method: "POST",
+          body: JSON.stringify({ imageData: imageSrc }),
+          headers: { "Content-Type": "application/json" },
+        });
 
-      // Base64データからBlobを作成
-      const base64Data = image.split(",")[1];
-      const blob = await fetch(`data:image/jpeg;base64,${base64Data}`).then(
-        (res) => res.blob()
-      );
-
-      // FormDataの作成
-      const formData = new FormData();
-      formData.append("file", blob, `image-${Date.now()}.jpg`);
-
-      // API routeを使用してS3にアップロード
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("アップロードに失敗しました");
+        const result = await response.json();
+        setFaceAnalysisResult(result);
+      } catch (error) {
+        console.error("分析エラー:", error);
+        setFaceAnalysisResult({
+          success: false,
+          message: "エラーが発生しました",
+        });
+      } finally {
+        setIsAnalyzing(false);
       }
-
-      const result = await response.json();
-      console.log(result);
-      setUploadStatus(`アップロード成功: ${result.url}`);
-    } catch (error) {
-      console.error("アップロードエラー:", error);
-      setUploadStatus(
-        `エラー: ${
-          error instanceof Error ? error.message : "アップロードに失敗しました"
-        }`
-      );
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -71,56 +90,63 @@ export default function Home() {
       <Webcam
         className="rounded-lg"
         ref={webcamRef}
-        videoConstraints={{ facingMode }}
         screenshotFormat="image/jpeg"
       />
-      <div className="flex flex-col gap-4 w-full">
-        <button
-          className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
-          onClick={capture}
-        >
-          撮る
-        </button>
-        <button
-          className="bg-gray-500 hover:bg-blue-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
-          onClick={switchCamera}
-        >
-          切り替え
-        </button>
-        {image && (
-          <button
-            className="bg-green-500 hover:bg-green-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
-            onClick={uploadToS3}
-            disabled={isUploading}
-          >
-            {isUploading ? "アップロード中..." : "S3にアップロード"}
-          </button>
-        )}
-      </div>
+
+      <button
+        className="w-full bg-green-500 hover:bg-green-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
+        onClick={analyzeImage}
+        disabled={isAnalyzing}
+      >
+        {isAnalyzing ? "分析中..." : "顔を分析する"}
+      </button>
+
       {image && (
-        <div className="mt-4">
+        <div>
           <h3 className="mb-2 text-lg font-medium">撮影された写真</h3>
           <Image
             src={image}
             alt="撮影された写真"
             width={300}
             height={200}
-            style={{
-              objectFit: "contain",
-              borderRadius: "12px",
-            }}
+            className="rounded-lg"
           />
         </div>
       )}
-      {uploadStatus && (
-        <div
-          className={`mt-2 p-2 rounded-md ${
-            uploadStatus.includes("エラー")
-              ? "bg-red-100 text-red-800"
-              : "bg-green-100 text-green-800"
-          }`}
-        >
-          {uploadStatus}
+      {faceAnalysisResult && (
+        <div className="p-4 bg-gray-100 rounded-lg text-black">
+          <h3 className="text-lg font-semibold mb-2">分析結果</h3>
+          {faceAnalysisResult.success ? (
+            <div>
+              <p>検出された顔: {faceAnalysisResult.faceCount}個</p>
+              {faceAnalysisResult.faceDetails?.map((face, index) => (
+                <div
+                  key={index}
+                  className="mt-3 p-3 bg-white rounded shadow-sm"
+                >
+                  <p>
+                    年齢: 約{face.age.low}～{face.age.high}歳
+                  </p>
+                  <p>
+                    性別: {face.gender === "Male" ? "男性" : "女性"} (
+                    {Math.round(face.genderConfidence ?? 0)}%)
+                  </p>
+                  <p>
+                    感情: {translateEmotion(face.emotion)} (
+                    {Math.round(face.emotionConfidence ?? 0)}%)
+                  </p>
+                  <p>笑顔: {face.smile ? "あり" : "なし"}</p>
+                  <p>眼鏡: {face.eyeglasses ? "着用" : "未着用"}</p>
+                  <p>ひげ: {face.beard ? "あり" : "なし"}</p>
+                  <p>
+                    口の開き: {face.mouthOpen ? "開いている" : "閉じている"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>{faceAnalysisResult.message}</p>
+          )}
         </div>
       )}
     </div>
