@@ -50,45 +50,36 @@ const translateEmotion = (emotion?: string): string => {
 
 export default function Home() {
   const webcamRef = useRef<Webcam>(null);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [image, setImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [faceAnalysisResult, setFaceAnalysisResult] =
     useState<FaceAnalysisResult | null>(null);
 
-  const switchCamera = () => {
-    setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
-  };
-
-  const capture = () => {
+  const analyzeImage = async () => {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
       setImage(imageSrc);
-    }
-  };
 
-  const analyzeImage = async () => {
-    if (!image) return;
+      try {
+        setIsAnalyzing(true);
 
-    try {
-      setIsAnalyzing(true);
+        const response = await fetch("/api/analyze-face", {
+          method: "POST",
+          body: JSON.stringify({ imageData: imageSrc }),
+          headers: { "Content-Type": "application/json" },
+        });
 
-      const response = await fetch("/api/analyze-face", {
-        method: "POST",
-        body: JSON.stringify({ imageData: image }),
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const result = await response.json();
-      setFaceAnalysisResult(result);
-    } catch (error) {
-      console.error("分析エラー:", error);
-      setFaceAnalysisResult({
-        success: false,
-        message: "エラーが発生しました",
-      });
-    } finally {
-      setIsAnalyzing(false);
+        const result = await response.json();
+        setFaceAnalysisResult(result);
+      } catch (error) {
+        console.error("分析エラー:", error);
+        setFaceAnalysisResult({
+          success: false,
+          message: "エラーが発生しました",
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
     }
   };
 
@@ -99,49 +90,31 @@ export default function Home() {
       <Webcam
         className="rounded-lg"
         ref={webcamRef}
-        videoConstraints={{ facingMode }}
         screenshotFormat="image/jpeg"
       />
-      <div className="flex flex-col gap-4 w-full">
-        <button
-          className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
-          onClick={capture}
-        >
-          撮る
-        </button>
-        <button
-          className="bg-gray-500 hover:bg-blue-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
-          onClick={switchCamera}
-        >
-          切り替え
-        </button>
-        {image && (
-          <button
-            className="bg-green-500 hover:bg-green-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
-            onClick={analyzeImage}
-            disabled={isAnalyzing}
-          >
-            {isAnalyzing ? "分析中..." : "顔を分析する"}
-          </button>
-        )}
-      </div>
+
+      <button
+        className="w-full bg-green-500 hover:bg-green-600 cursor-pointer text-white px-4 py-1.5 rounded-md"
+        onClick={analyzeImage}
+        disabled={isAnalyzing}
+      >
+        {isAnalyzing ? "分析中..." : "顔を分析する"}
+      </button>
+
       {image && (
-        <div className="mt-4">
+        <div>
           <h3 className="mb-2 text-lg font-medium">撮影された写真</h3>
           <Image
             src={image}
             alt="撮影された写真"
             width={300}
             height={200}
-            style={{
-              objectFit: "contain",
-              borderRadius: "12px",
-            }}
+            className="rounded-lg"
           />
         </div>
       )}
       {faceAnalysisResult && (
-        <div className="mt-4 p-4 bg-gray-100 rounded-lg text-black">
+        <div className="p-4 bg-gray-100 rounded-lg text-black">
           <h3 className="text-lg font-semibold mb-2">分析結果</h3>
           {faceAnalysisResult.success ? (
             <div>
