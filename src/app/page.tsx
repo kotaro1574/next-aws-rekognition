@@ -85,7 +85,7 @@ export default function Home() {
 
   return (
     <div className="max-w-100 mx-auto p-4 flex flex-col items-center gap-4">
-      <h1 className="text-2xl font-bold">顔認証</h1>
+      <h1 className="text-2xl font-bold">顔分析</h1>
 
       <Webcam
         className="rounded-lg"
