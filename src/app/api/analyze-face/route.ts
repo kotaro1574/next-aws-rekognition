@@ -56,23 +56,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "顔分析に成功しました",
       faceCount: detectFacesResponse.FaceDetails.length,
-      faceDetails: detectFacesResponse.FaceDetails.map((face) => ({
-        age: {
-          low: face.AgeRange?.Low,
-          high: face.AgeRange?.High,
-        },
-        gender: face.Gender?.Value,
-        genderConfidence: face.Gender?.Confidence,
-        emotion: face.Emotions?.[0]?.Type, // 最も強い感情
-        emotionConfidence: face.Emotions?.[0]?.Confidence,
-        smile: face.Smile?.Value,
-        eyeglasses: face.Eyeglasses?.Value,
-        sunglasses: face.Sunglasses?.Value,
-        beard: face.Beard?.Value,
-        mustache: face.Mustache?.Value,
-        eyesOpen: face.EyesOpen?.Value,
-        mouthOpen: face.MouthOpen?.Value,
-      })),
+      faceDetails: detectFacesResponse.FaceDetails,
     });
   } catch (error) {
     console.error("エラー:", error);

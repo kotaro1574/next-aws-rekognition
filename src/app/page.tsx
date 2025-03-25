@@ -1,26 +1,9 @@
 "use client";
 
+import { FaceDetail } from "@aws-sdk/client-rekognition";
 import Image from "next/image";
 import { useRef, useState } from "react";
 import Webcam from "react-webcam";
-
-interface FaceDetail {
-  age: {
-    low?: number;
-    high?: number;
-  };
-  gender?: string;
-  genderConfidence?: number;
-  emotion?: string;
-  emotionConfidence?: number;
-  smile?: boolean;
-  eyeglasses?: boolean;
-  sunglasses?: boolean;
-  beard?: boolean;
-  mustache?: boolean;
-  eyesOpen?: boolean;
-  mouthOpen?: boolean;
-}
 
 interface FaceAnalysisResult {
   success: boolean;
@@ -118,28 +101,41 @@ export default function Home() {
           <h3 className="text-lg font-semibold mb-2">分析結果</h3>
           {faceAnalysisResult.success ? (
             <div>
-              <p>検出された顔: {faceAnalysisResult.faceCount}個</p>
+              <p>検出された顔: {faceAnalysisResult.faceCount}個 👤</p>
               {faceAnalysisResult.faceDetails?.map((face, index) => (
                 <div
                   key={index}
                   className="mt-3 p-3 bg-white rounded shadow-sm"
                 >
                   <p>
-                    年齢: 約{face.age.low}～{face.age.high}歳
+                    年齢: 約{face.AgeRange?.Low}～{face.AgeRange?.High}歳
                   </p>
                   <p>
-                    性別: {face.gender === "Male" ? "男性" : "女性"} (
-                    {Math.round(face.genderConfidence ?? 0)}%)
+                    性別:{" "}
+                    {face.Gender?.Value === "Male" ? "男性 👨" : "女性 👩"} (
+                    {Math.round(face.Gender?.Confidence ?? 0)}%)
                   </p>
                   <p>
-                    感情: {translateEmotion(face.emotion)} (
-                    {Math.round(face.emotionConfidence ?? 0)}%)
+                    感情: {translateEmotion(face.Emotions?.[0]?.Type)} (
+                    {Math.round(face.Emotions?.[0]?.Confidence ?? 0)}%)
                   </p>
-                  <p>笑顔: {face.smile ? "あり" : "なし"}</p>
-                  <p>眼鏡: {face.eyeglasses ? "着用" : "未着用"}</p>
-                  <p>ひげ: {face.beard ? "あり" : "なし"}</p>
+                  <p>笑顔: {face.Smile?.Value ? "あり 😊" : "なし 😐"}</p>
                   <p>
-                    口の開き: {face.mouthOpen ? "開いている" : "閉じている"}
+                    眼鏡: {face.Eyeglasses?.Value ? "着用 👓" : "未着用 👀"}
+                  </p>
+                  <p>
+                    サングラス:{" "}
+                    {face.Sunglasses?.Value ? "着用 🕶️" : "未着用 👀"}
+                  </p>
+                  <p>ひげ: {face.Beard?.Value ? "あり 🧔" : "なし 🙂"}</p>
+                  <p>口髭: {face.Mustache?.Value ? "あり 👨" : "なし 🙂"}</p>
+                  <p>
+                    目が開いている:{" "}
+                    {face.EyesOpen?.Value ? "開いている 👀" : "閉じている 😌"}
+                  </p>
+                  <p>
+                    口が開いている:{" "}
+                    {face.MouthOpen?.Value ? "開いている 😮" : "閉じている 😶"}
                   </p>
                 </div>
               ))}
